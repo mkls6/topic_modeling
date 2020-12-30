@@ -1,2 +1,11 @@
+# Python venv
 **venv**
+
+# Visual Studio Code
 **.vscode
+
+# Jupyter Notebook checkpoints
+**/.ipynb
+
+# Dataset dir
+datasets/
