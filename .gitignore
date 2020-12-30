@@ -5,7 +5,7 @@
 **.vscode
 
 # Jupyter Notebook checkpoints
-**/.ipynb
+**/.ipynb_checkpoints
 
 # Dataset dir
 datasets/
