@@ -14,3 +14,7 @@ University
 │   └── result demo (Python)
 └── README.md
 ```
+
+## Environment
+All dependencies are listed in `requirements.txt`.
+Python interpeter version is 3.9.
