@@ -1,3 +1,5 @@
+#!/bin/env python3
+
 from preproc import Preprocessor, LangEnum
 from ui import get_cli_parser
 
