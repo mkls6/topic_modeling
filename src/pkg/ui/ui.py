@@ -31,6 +31,13 @@ def get_cli_parser():
         choices=['lda', 'nmf', 'bert', 'topic2vec'],
         type=str
     )
+    parser.add_argument(
+        '-s', '--stopwords',
+        help='Path to text file containing stopwords to add',
+        default=None,
+        type=str
+    )
+    return parser
 
 
 def get_files(path: PathLike):
