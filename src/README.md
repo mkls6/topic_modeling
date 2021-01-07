@@ -10,4 +10,8 @@ export PYTHONPATH=${PYTHONPATH:+${PYTHONPATH}:}$PWD/pkg
 # fish
 set -ax PYTHONPATH $PWD/pkg
 ```
-* 
+* Run `main.py`
+```shell
+python3 main.py
+```
+* * Alternatively, add executable bit `chmod +x main.py` and run `./main.py`
