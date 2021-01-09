@@ -50,7 +50,8 @@ class Preprocessor:
                                  token.like_num or
                                  token.lemma_.lower() in
                                  self.nlp.Defaults.stop_words)],
-            last=True)
+            last=True
+        )
 
     def update_stopwords(self, stop_words: Iterable[str]) -> None:
         """
@@ -74,7 +75,7 @@ class Preprocessor:
         :return: preprocessed documents and
                 a gensim Dictionary of the given docs
         """
-        docs = self.__get_preprocessed_docs__(data)
+        docs = list(self.__get_preprocessed_docs__(data))
         return docs, Dictionary(docs)
 
     def __get_preprocessed_docs__(self,
