@@ -1,7 +1,7 @@
 """CLI interface using argparse.ArgumentParser"""
 
 from argparse import ArgumentParser
-from os import PathLike
+from os import PathLike, getcwd
 from os.path import join as path_join, isfile
 from glob import iglob
 
@@ -35,6 +35,12 @@ def get_cli_parser():
         '-s', '--stopwords',
         help='Path to text file containing stopwords to add',
         default=None,
+        type=str
+    )
+    parser.add_argument(
+        '-l', '--logdir',
+        help='Directory to dump logs to. Default is $PWD/logs',
+        default=getcwd(),
         type=str
     )
     return parser
