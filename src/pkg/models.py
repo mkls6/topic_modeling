@@ -4,6 +4,8 @@ default implementations (LDA, NMF).
 """
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Iterable, Tuple
+from gensim.models import LdaModel, LdaMulticore
+from functools import partial
 
 
 class GenericModel(ABC):
@@ -43,7 +45,7 @@ class GenericModel(ABC):
 
     @abstractmethod
     def get_topics(self,
-                   docs: Optional[Any] = None,
+                   docs: Optional[Iterable[Any]] = None,
                    *args, **kwargs) -> Iterable[Tuple[int, Tuple[str, float]]]:
         """
         Get topics extracted from docs
@@ -64,16 +66,41 @@ class LDA(GenericModel):
     """
 
     def __init__(self, *args, **kwargs):
-        pass
+        """
+        All provided arguments will be passed to LdaModel or
+        LdaMulticore constructors (the latter in case 'workers'
+        is present in keyword arguments)
+
+        :param args: positional arguments to initialize model with
+        :param kwargs: keyword arguments to pass to model constructor
+        """
+        if 'workers' in kwargs.keys():
+            self.__model__ = LdaMulticore(*args, **kwargs)
+        else:
+            self.__model__ = LdaModel(*args, **kwargs)
 
     def fit(self, data: Any, *args, **kwargs):
+        # Actually, I think there is no need for this as
+        # we can simply use update() for uninitialized model
         pass
 
     def update(self, data: Any, *args, **kwargs):
-        pass
+        self.__model__.update(corpus=data, *args, **kwargs)
 
-    def get_topics(self, docs: Optional[Any] = None, *args, **kwargs):
-        pass
+    def get_topics(self, docs: Optional[Iterable[Any]] = None, *args, **kwargs):
+        if docs is None:
+            topics = self.__model__.show_topics(formatted=False,
+                                                *args, **kwargs)
+        else:
+            topics = list(
+                map(
+                    partial(self.__model__.get_document_topics,
+                            per_word_topics=True),
+                    docs
+                )
+            )
+
+        return topics
 
 
 class NMF(GenericModel):
