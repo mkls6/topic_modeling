@@ -82,7 +82,7 @@ class LDA(GenericModel):
     def fit(self, data: Any, *args, **kwargs):
         # Actually, I think there is no need for this as
         # we can simply use update() for uninitialized model
-        pass
+        self.__model__.update(corpus=data, *args, **kwargs)
 
     def update(self, data: Any, *args, **kwargs):
         self.__model__.update(corpus=data, *args, **kwargs)
