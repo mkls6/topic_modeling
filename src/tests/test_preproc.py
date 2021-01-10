@@ -1,14 +1,5 @@
+from defines import TARGET_TEXTS_EN, COMPARISON_SETS_EN
 from preproc import Preprocessor, LangEnum
-
-TARGET_TEXTS_EN = [
-    'Bleep-bloop, I am a robot!',
-    'There is a number (12345) and an email (hello-there@box.com).'
-]
-
-COMPARISON_SETS_EN = [
-    {'numb', 'robot', 'bloop', 'email', 'bleep'},
-    {'numb', 'email', 'bleep'}
-]
 
 EN_PREPROCESSOR = Preprocessor(language=LangEnum.EN, stop_words=[])
 
