@@ -2,6 +2,7 @@ import spacy
 from spacy.language import Language
 from spacy.analysis import Doc
 from gensim.corpora.dictionary import Dictionary
+from itertools import tee
 from enum import Enum
 from typing import Iterable
 
@@ -75,8 +76,9 @@ class Preprocessor:
         :return: preprocessed documents and
                 a gensim Dictionary of the given docs
         """
-        docs = list(self.__get_preprocessed_docs__(data))
-        return docs, Dictionary(docs)
+        docs = self.__get_preprocessed_docs__(data)
+        docs, docs_iter_copy = tee(docs)
+        return docs, Dictionary(docs_iter_copy)
 
     def __get_preprocessed_docs__(self,
                                   data: Iterable[str]):
