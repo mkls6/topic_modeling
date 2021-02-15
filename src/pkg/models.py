@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, Iterable, Tuple
 from gensim.models import LdaModel, LdaMulticore
 from functools import partial
+from top2vec import Top2Vec
 
 
 class GenericModel(ABC):
@@ -118,4 +119,22 @@ class NMF(GenericModel):
         pass
 
     def get_topics(self, docs: Optional[Any] = None, *args, **kwargs):
+        pass
+
+
+class Top2VecW(GenericModel):
+    """Wrapper for top2vec model"""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize Top2Vec with the given args"""
+        self.__model__ = Top2Vec(*args, **kwargs)
+
+    def fit(self, data: Any, *args, **kwargs) -> None:
+        pass
+
+    def update(self, data: Any, *args, **kwargs) -> None:
+        pass
+
+    def get_topics(self, docs: Optional[Iterable[Any]] = None, *args,
+                   **kwargs) -> Iterable[Tuple[int, Tuple[str, float]]]:
         pass
