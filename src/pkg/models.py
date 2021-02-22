@@ -130,11 +130,22 @@ class Top2VecW(GenericModel):
         self.__model__ = Top2Vec(*args, **kwargs)
 
     def fit(self, data: Any, *args, **kwargs) -> None:
+        print("Top2Vec API requires to pass docs in object constructor. "
+              "Please, pass them with `documents` constructor parameter.")
         pass
 
     def update(self, data: Any, *args, **kwargs) -> None:
-        pass
+        self.__model__.add_documents(data, *args, **kwargs)
 
     def get_topics(self, docs: Optional[Iterable[Any]] = None, *args,
                    **kwargs) -> Iterable[Tuple[int, Tuple[str, float]]]:
-        pass
+        if docs is not None:
+            # return self.__model__.get_documents_topics()
+            raise NotImplementedError("Currently, the only possible way to "
+                                      "infer is to update model or retrain "
+                                      "with new docs.")
+        else:
+            topic_words, word_scores, topic_nums = self.__model__.get_topics(
+                *args, **kwargs
+            )
+            return zip(topic_nums, zip(topic_words, word_scores))
