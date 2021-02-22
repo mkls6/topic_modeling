@@ -1,6 +1,6 @@
 import spacy
 from spacy.language import Language
-from spacy.analysis import Doc
+from spacy.pipe_analysis import Doc
 from gensim.corpora.dictionary import Dictionary
 from itertools import tee
 from enum import Enum
@@ -26,8 +26,7 @@ class Preprocessor:
         # Preload ready to use spacy language model (tokenizer, lemmatizer, etc)
         if language == LangEnum.EN:
             self.nlp: Language = spacy.load('en_core_web_sm',
-                                            disable=["tagger",
-                                                     "parser",
+                                            disable=["parser",
                                                      "ner"])
         elif language == LangEnum.RU:
             # TODO: load spacy model for russian language
@@ -40,17 +39,21 @@ class Preprocessor:
         if stop_words is not None:
             self.update_stopwords(stop_words)
 
+        @spacy.Language.component(name='lemmatize')
+        def lemmatize(doc):
+            return [token.lemma_.lower() for token in doc
+                    if not (token.is_stop or
+                            token.is_punct or
+                            token.like_email or
+                            token.like_url or
+                            token.is_space or
+                            token.like_num or
+                            token.lemma_.lower() in
+                            self.nlp.Defaults.stop_words)]
+
         # Add stop words removing to spacy pipeline
         self.nlp.add_pipe(
-            lambda doc: [token.lemma_.lower() for token in doc
-                         if not (token.is_stop or
-                                 token.is_punct or
-                                 token.like_email or
-                                 token.like_url or
-                                 token.is_space or
-                                 token.like_num or
-                                 token.lemma_.lower() in
-                                 self.nlp.Defaults.stop_words)],
+            'lemmatize',
             last=True
         )
 
