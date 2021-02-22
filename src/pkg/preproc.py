@@ -29,8 +29,9 @@ class Preprocessor:
                                             disable=["parser",
                                                      "ner"])
         elif language == LangEnum.RU:
-            # TODO: load spacy model for russian language
-            raise NotImplementedError('Unavailable yet! :(')
+            self.nlp: Language = spacy.load('ru_core_news_sm',
+                                            disable=['parser',
+                                                     'ner'])
         else:
             raise NotImplementedError('Only russian and english '
                                       'languages are supported at the moment')
@@ -41,15 +42,18 @@ class Preprocessor:
 
         @spacy.Language.component(name='lemmatize')
         def lemmatize(doc):
-            return [token.lemma_.lower() for token in doc
-                    if not (token.is_stop or
-                            token.is_punct or
-                            token.like_email or
-                            token.like_url or
-                            token.is_space or
-                            token.like_num or
-                            token.lemma_.lower() in
-                            self.nlp.Defaults.stop_words)]
+            tokens = [token.lemma_.lower() for token in doc
+                      if not (token.is_stop or
+                              token.is_punct or
+                              token.like_email or
+                              token.like_url or
+                              token.is_space or
+                              token.like_num or
+                              token.lemma_.lower() in
+                              self.nlp.Defaults.stop_words)]
+            new_doc = Doc(vocab=doc.vocab,
+                          words=tokens)
+            return new_doc
 
         # Add stop words removing to spacy pipeline
         self.nlp.add_pipe(
@@ -81,7 +85,8 @@ class Preprocessor:
         """
         docs = self.__get_preprocessed_docs__(data)
         docs, docs_iter_copy = tee(docs)
-        return docs, Dictionary(docs_iter_copy)
+        return docs, Dictionary(map(lambda x: [y.lemma_.lower() for y in x],
+                                    docs_iter_copy))
 
     def __get_preprocessed_docs__(self,
                                   data: Iterable[str]):
@@ -91,6 +96,6 @@ class Preprocessor:
         :param data: iterable of strings (1 string = 1 doc)
         :return: spacy Document generator
         """
-        docs = self.nlp.pipe(data)
+        docs = self.nlp.pipe(data, n_process=-1)
         for doc in docs:
             yield doc
