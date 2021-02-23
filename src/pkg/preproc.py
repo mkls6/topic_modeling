@@ -85,7 +85,9 @@ class Preprocessor:
         """
         docs = self.__get_preprocessed_docs__(data)
         docs, docs_iter_copy = tee(docs)
-        return docs, Dictionary(map(lambda x: [y.lemma_.lower() for y in x],
+        # print(list(map(lambda x: [y.lower_ for y in x],
+        #                docs_iter_copy)))
+        return docs, Dictionary(map(lambda x: [y.lower_ for y in x],
                                     docs_iter_copy))
 
     def __get_preprocessed_docs__(self,
