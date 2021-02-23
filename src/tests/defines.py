@@ -3,9 +3,20 @@ TARGET_TEXTS_EN = [
     'There is a number (12345) and an email (hello-there@box.com).'
 ]
 
+TARGET_TEXTS_RU = [
+    'Всем привет, я только проснулся)))',
+    'Взрыв на федеральном газопроводе произошел в Оренбургской области'
+]
+
 COMPARISON_SETS_EN = [
     {'number', 'robot', 'bloop', 'email', 'bleep'},
     {'number', 'email', 'bleep'}
+]
+
+COMPARISON_SETS_RU = [
+    {'взрыв', 'газопровод', 'область', 'оренбургский', 'привет', 'произойти',
+     'проснуться', 'федеральный'},
+    {}
 ]
 
 # TODO: reliably compare topic scores?
