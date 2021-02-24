@@ -3,6 +3,7 @@ This module contains generic model wrapper and some
 default implementations (LDA, NMF).
 """
 from abc import ABC, abstractmethod
+from itertools import tee
 from typing import Any, Optional, Iterable, Tuple
 from gensim.models import LdaModel, LdaMulticore
 from functools import partial
@@ -93,13 +94,20 @@ class LDA(GenericModel):
             topics = self.__model__.show_topics(formatted=False,
                                                 *args, **kwargs)
         else:
-            topics = list(
-                map(
-                    partial(self.__model__.get_document_topics,
-                            per_word_topics=True),
-                    docs
-                )
+            topics = map(
+                partial(self.__model__.get_document_topics,
+                        per_word_topics=True),
+                docs
             )
+        topics, t_copy, t_copy_1 = tee(topics, 3)
+
+        ids = map(lambda x: x[0], topics)
+        words = map(lambda x: x[1], t_copy)
+        words = map(lambda x: list(zip(*x))[0], words)
+        scores = map(lambda x: x[1], t_copy_1)
+        scores = map(lambda x: list(zip(*x))[1], scores)
+
+        topics = zip(ids, zip(words, scores))
 
         return topics
 
