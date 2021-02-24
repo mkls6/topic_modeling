@@ -62,3 +62,7 @@ COMPARISON_TOPICS_EN = [
         }
     )
 ]
+
+COMPARISON_TOPICS_RU = [
+    {}
+]
