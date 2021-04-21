@@ -234,7 +234,5 @@ dependencies:
   - zstd=1.4.8=ha95c52a_1
   - pip:
     - docopt==0.6.2
-    - en-core-web-sm==3.0.0
-    - ru-core-news-sm==3.0.0
     - smart-open==3.0.0
     - top2vec==1.0.21

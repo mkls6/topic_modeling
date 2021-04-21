@@ -1,6 +1,21 @@
 # Demo
-It's still unfinished, but you can run what is already done with main.py
+It's still unfinished, but you can run what is already done with `main.py`
 entry point.
+## Environment
+This project uses Conda for dependency management.
+Restore the env using following command:
+
+```
+conda env create -f environment.yml
+conda activate topic_modeling
+```
+
+Next, you'll need to download and install Spacy language models:
+```
+python -m spacy download en_core_web_lg
+python -m spacy download ru_core_news_lg
+```
+
 ## Run
 * Add pkg to `PYTHONPATH` variable:
 ```shell
