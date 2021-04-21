@@ -25,11 +25,11 @@ class Preprocessor:
                  stop_words: Iterable[str] = None):
         # Preload ready to use spacy language model (tokenizer, lemmatizer, etc)
         if language == LangEnum.EN:
-            self.nlp: Language = spacy.load('en_core_web_sm',
+            self.nlp: Language = spacy.load('en_core_web_lg',
                                             disable=["parser",
                                                      "ner"])
         elif language == LangEnum.RU:
-            self.nlp: Language = spacy.load('ru_core_news_sm',
+            self.nlp: Language = spacy.load('ru_core_news_lg',
                                             disable=['parser',
                                                      'ner'])
         else:
