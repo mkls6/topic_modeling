@@ -26,9 +26,9 @@ def get_cli_parser():
     )
     parser.add_argument(
         '-t', '--type',
-        help='"lda", "nmf", "bert" or "topic2vec"',
+        help='"lda", "nmf", "top2vec" or "topic2vec"',
         default='lda',
-        choices=['lda', 'nmf', 'bert', 'topic2vec'],
+        choices=['lda', 'nmf', 'top2vec', 'topic2vec'],
         type=str
     )
     parser.add_argument(

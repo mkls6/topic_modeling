@@ -1,6 +1,10 @@
 import spacy
+from spacy.tokenizer import Tokenizer
+from spacy.lang.char_classes import ALPHA, ALPHA_LOWER, ALPHA_UPPER
+from spacy.lang.char_classes import CONCAT_QUOTES, LIST_ELLIPSES, LIST_ICONS
 from spacy.language import Language
 from spacy.pipe_analysis import Doc
+from spacy.util import compile_infix_regex
 from gensim.corpora.dictionary import Dictionary
 from itertools import tee
 from enum import Enum
@@ -22,42 +26,79 @@ class Preprocessor:
     """
 
     def __init__(self, language: LangEnum = 0,
-                 stop_words: Iterable[str] = None):
+                 stop_words: Iterable[str] = None,
+                 tokenize_ents: bool = True):
         # Preload ready to use spacy language model (tokenizer, lemmatizer, etc)
         if language == LangEnum.EN:
-            self.nlp: Language = spacy.load('en_core_web_lg',
-                                            disable=["parser",
-                                                     "ner"])
+            self.nlp: Language = spacy.load('en_core_web_sm')
         elif language == LangEnum.RU:
-            self.nlp: Language = spacy.load('ru_core_news_lg',
-                                            disable=['parser',
-                                                     'ner'])
+            self.nlp: Language = spacy.load('ru_core_news_md')
         else:
-            raise NotImplementedError('Only russian and english '
+            raise NotImplementedError('Only Russian and English '
                                       'languages are supported at the moment')
 
+        # Wheter or not to tokenize detected named entities
+        self.tokenize_ents = tokenize_ents
+        
+        # Modify tokenizer infix patterns
+        infixes = (
+            LIST_ELLIPSES
+            + LIST_ICONS
+            + [
+                r"(?<=[0-9])[+\-\*^](?=[0-9-])",
+                r"(?<=[{al}{q}])\.(?=[{au}{q}])".format(
+                    al=ALPHA_LOWER, au=ALPHA_UPPER, q=CONCAT_QUOTES
+                ),
+                r"(?<=[{a}]),(?=[{a}])".format(a=ALPHA),
+                # r"(?<=[{a}])(?:{h})(?=[{a}])".format(a=ALPHA, h=HYPHENS),
+                r"(?<=[{a}0-9])[:<>=/](?=[{a}])".format(a=ALPHA),
+            ]
+        )
+        
+        infix_re = compile_infix_regex(infixes)
+        self.nlp.tokenizer.infix_finditer = infix_re.finditer
+        
         # Update the built-in stopwords list
         if stop_words is not None:
             self.update_stopwords(stop_words)
 
-        @spacy.Language.component(name='lemmatize')
-        def lemmatize(doc):
-            tokens = [token.lemma_.lower() for token in doc
+        @spacy.Language.component(name='custom_preproc')
+        def lemmatize(doc: Doc):
+            tokens = [token for token in doc
                       if not (token.is_stop or
                               token.is_punct or
                               token.like_email or
                               token.like_url or
                               token.is_space or
+                              token.is_currency or
                               token.like_num or
                               token.lemma_.lower() in
                               self.nlp.Defaults.stop_words)]
+            res_tokens = []
+            
+            if not self.tokenize_ents and len(doc.ents) > 0:
+                merged_tokens = ""
+                
+                for token in tokens:                    
+                    if token.ent_iob == 3: # Beggining of the entity
+                        merged_tokens = token.lemma_.lower().strip() + "_"
+                    elif token.ent_iob == 1: # Inside the entity
+                        merged_tokens += token.lemma_.lower().strip() + "_"
+                    elif merged_tokens == "":
+                        res_tokens.append(token.lemma_.lower().strip())
+                    else:
+                        res_tokens.append(merged_tokens[:-1])
+                        merged_tokens = ""
+            else:
+                res_tokens = [t.lemma_.lower().strip() for t in tokens]
+
             new_doc = Doc(vocab=doc.vocab,
-                          words=tokens)
+                          words=res_tokens)
             return new_doc
 
         # Add stop words removing to spacy pipeline
         self.nlp.add_pipe(
-            'lemmatize',
+            'custom_preproc',
             last=True
         )
 
@@ -85,10 +126,7 @@ class Preprocessor:
         """
         docs = self.__get_preprocessed_docs__(data)
         docs, docs_iter_copy = tee(docs)
-        # print(list(map(lambda x: [y.lower_ for y in x],
-        #                docs_iter_copy)))
-        return docs, Dictionary(map(lambda x: [y.lower_ for y in x],
-                                    docs_iter_copy))
+        return docs, Dictionary(map(lambda x: [y.text for y in x], docs_iter_copy))
 
     def __get_preprocessed_docs__(self,
                                   data: Iterable[str]):
