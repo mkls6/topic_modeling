@@ -9,3 +9,5 @@
 
 # Dataset dir
 datasets/
+
+**/__pycache__
