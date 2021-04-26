@@ -8,6 +8,7 @@ from spacy.util import compile_infix_regex
 from gensim.corpora.dictionary import Dictionary
 from itertools import tee
 from enum import Enum
+from os import cpu_count
 from typing import Iterable
 
 
@@ -27,7 +28,8 @@ class Preprocessor:
 
     def __init__(self, language: LangEnum = 0,
                  stop_words: Iterable[str] = None,
-                 tokenize_ents: bool = True):
+                 tokenize_ents: bool = True,
+                 workers: int = cpu_count()):
         # Preload ready to use spacy language model (tokenizer, lemmatizer, etc)
         if language == LangEnum.EN:
             self.nlp: Language = spacy.load('en_core_web_sm')
@@ -39,6 +41,8 @@ class Preprocessor:
 
         # Wheter or not to tokenize detected named entities
         self.tokenize_ents = tokenize_ents
+        
+        self.workers = workers
         
         # Modify tokenizer infix patterns
         infixes = (
@@ -79,8 +83,9 @@ class Preprocessor:
             if not self.tokenize_ents and len(doc.ents) > 0:
                 merged_tokens = ""
                 
-                for token in tokens:                    
+                for token in tokens:                
                     if token.ent_iob == 3: # Beggining of the entity
+                        # token = "-".join(token.lemma_.lower().split('-'))
                         merged_tokens = token.lemma_.lower().strip() + "_"
                     elif token.ent_iob == 1: # Inside the entity
                         merged_tokens += token.lemma_.lower().strip() + "_"
@@ -136,6 +141,6 @@ class Preprocessor:
         :param data: iterable of strings (1 string = 1 doc)
         :return: spacy Document generator
         """
-        docs = self.nlp.pipe(data, n_process=-1)
+        docs = self.nlp.pipe(data, n_process=self.workers)
         for doc in docs:
             yield doc
