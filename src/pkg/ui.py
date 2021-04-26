@@ -51,3 +51,12 @@ def get_files(path: PathLike):
     for file in files:
         if isfile(file):
             yield file
+
+
+def get_text(path: PathLike):
+    text = []
+    with open(path) as f:
+        for line in f:
+            text.append(line)
+
+    return " ".join(text)
