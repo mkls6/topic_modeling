@@ -1,97 +1,141 @@
 #!/bin/env python3
 
 import pickle
-import logging
-import datetime as dt
+import random
+import re
+import gc
+# import logging
+from os import makedirs
+from os.path import basename, join, exists
 from itertools import tee
-from preproc import Preprocessor, LangEnum
-from models import LDA, Top2VecW, NMF
+from pkg import Preprocessor, LangEnum
+from pkg import LDA, Top2VecW
+from gensim.corpora import Dictionary
 from gensim.models.coherencemodel import CoherenceModel
+from pkg import get_files, get_cli_parser, get_text
+from tqdm import tqdm
+from multiprocessing import Pool
+
+
+def crutch_for_top2vec(doc):
+    return doc.split()
+
+
+MODEL_CONFIGS = [
+    ('lda', {'cls': LDA,
+             'workers': 12,
+             'num_topics': 10,
+             'chunksize': 30,
+             'per_word_topics': True}),
+    ('top2vec_doc2vec', {'cls': Top2VecW,
+                         'embedding_model': 'doc2vec',
+                         'tokenizer': crutch_for_top2vec,
+                         'workers': 12}),
+    ('top2vec_universal_sentence_encoder', {'cls': Top2VecW,
+                                            'embedding_model': 'universal-sentence-encoder-multilingual',
+                                            'tokenizer': crutch_for_top2vec,
+                                            'workers': 12})
+    # ('top2vec_sbert', {'cls': Top2VecW,
+    #                    'embedding_model': 'distiluse-base-multilingual-cased',
+    #                    'tokenizer': crutch_for_top2vec,
+    #                    'workers': 12})
+]
+
+PREPROC_CONFIGS = [
+    # ('simple', {'tokenize_ents': True, 'workers': 12}),
+    ('ner', {'tokenize_ents': False, 'workers': 12})
+]
 
 if __name__ == '__main__':
-    # parser = get_cli_parser()
-    logging.basicConfig(filename=f'{dt.datetime.utcnow()}-log.txt',
-                        level=logging.INFO)
-    # args = parser.parse_args()
+    random.seed(42)
+    
+    parser = get_cli_parser()
+    args = vars(parser.parse_args())
 
-    # files = get_files(args['input_dir'])
+    dataset_name = basename(args['input_dir'])
+    preloaded_path = join(args['input_dir'], dataset_name + '_preloaded')
+    makedirs(dataset_name, exist_ok=True)
+    
+    print(f"Using {dataset_name} as input document collection")
+    
+    print(f"Loading texts")
+    if exists(preloaded_path):
+        print('Using preloaded text list')
+        with open(preloaded_path, 'rb') as f:
+            files = pickle.load(f)
+    else:   
+        # List to make processing faster
+        with Pool(12) as p:
+           files = list(tqdm(p.imap(get_text, get_files(args['input_dir']))))
+        files = list(map(get_text, tqdm(get_files(args['input_dir']))))
+        with open(preloaded_path, 'wb') as f:
+            pickle.dump(files, f)
 
-    # preprocessor = Preprocessor(language=LangEnum.EN,
-    #                             stop_words=None)
-    # texts, dictionary = preprocessor.preprocess_texts(
-    #     [
-    #         'Bleep-bloop, I am a robot!',
-    #         'There is a number (12345) and an email (hello-there@box.com).'
-    #     ]
-    # )
-    # print(set(dictionary.values()))
+    for i, text in enumerate(files):
+        r_text, n = re.subn(r'[0-9]+:[0-9]+', '', text)
+        files[i] = r_text
 
-    # Load Interfax subset from Taiga dataset
-    logging.info('Loading Interfax texts')
-    with open('../loaded_texts', 'rb') as f:
-        texts = pickle.load(f)  # Preloaded texts
-    texts = texts[:1000]
-    # interfax_csv = pd.read_csv(
-    #     filepath_or_buffer='/run/media/mk/Media/ml/coursework/datasets'
-    #                        '/taiga/news/Interfax/newmetadata.csv',
-    #     sep='\t'
-    # )
+    for preproc_name, cfg in tqdm(PREPROC_CONFIGS):
+        tqdm.write(f'Running preprocessing with `{preproc_name}` config')
+        
+        texts_path = f'../{dataset_name}_preprocessed_{preproc_name}'
+        dict_path = f'../{dataset_name}_preprocessed_{preproc_name}_dict'
+        
+        if exists(texts_path) and \
+           exists(dict_path):
+           with open(texts_path, 'rb') as f:
+                texts = pickle.load(f)
+           dictionary = Dictionary.load(dict_path)
+                
+        else:
+            preproc = Preprocessor(language=LangEnum.RU, **cfg)
+            # texts, dictionary = preproc.preprocess_texts(map(get_text, files))
+            texts, dictionary = preproc.preprocess_texts(files)
+            texts = list(texts)
+        
+            with open(f'../{dataset_name}_preprocessed_{preproc_name}', 'wb') as f:
+                pickle.dump(texts, f)
+            with open(f'../{dataset_name}_preprocessed_{preproc_name}_dict', 'wb') as f:
+                dictionary.save(f)
 
-    # Preprocess texts
-    logging.info('Preprocessing texts')
-    preprocessor = Preprocessor(language=LangEnum.RU)
-    doc_iter, dictionary = preprocessor.preprocess_texts(texts)
-    preprocessed_texts = list(doc_iter)
+        for model_name, cfg in MODEL_CONFIGS:
+            gc.collect()
+            tqdm.write(f'Fitting {model_name}')
+            cfg: dict = cfg
+            cls = cfg['cls']
+            cfg.pop('cls')
 
-    # Free some memory
-    del texts
+            # LDA needs additional arguments 
+            # TODO: make uniform API for this
+            if cls is LDA:
+                doc2bow_corpus = [dictionary.doc2bow(doc)
+                                  for doc in map(lambda x: [y.lower_ for y in x],
+                                                 texts)]
 
-    logging.info('Create gensim corpus object')
-    doc2bow_corpus = [dictionary.doc2bow(doc)
-                      for doc in map(lambda x: [y.lower_ for y in x],
-                                     preprocessed_texts)]
+                model = cls(**cfg, corpus=doc2bow_corpus, id2word=dictionary)
+            else:
+                model = cls(**cfg, documents=[str(text) for text in texts])
 
-    logging.info('Initialize and fit LDA model')
-    lda = LDA(workers=10, corpus=doc2bow_corpus, id2word=dictionary,
-              num_topics=10, chunksize=30,
-              per_word_topics=True)
-    topics = lda.get_topics(num_topics=10)
-    topics, t_copy, t_copy_1 = tee(topics, 3)
+            topics = model.get_topics(num_topics=10)
+            topics, t_copy, t_copy_1 = tee(topics, 3)
 
-    ids = list(map(lambda x: x[0], topics))
-    words = list(map(lambda x: x[1][0], t_copy))
-    scores = list(map(lambda x: x[1][1], t_copy_1))
-    # coherence_model = CoherenceModel(topics=words, texts=preprocessed_texts,
-    #                                  dictionary=dictionary)
-    # logging.info(f'LDA coherence score: {coherence_model.get_coherence()}')
+            ids = list(map(lambda x: x[0], topics))
+            words = list(map(lambda x: x[1][0], t_copy))
+            scores = list(map(lambda x: x[1][1], t_copy_1))
+            
+            # print(words)
 
-    logging.info(f'Saving LDA top 10 topics')
-    with open('./lda-topics', 'w') as f:
-        for topic_num, (words, scores) in zip(ids, zip(words, scores)):
-            f.write(f'Topic {topic_num}:\n')
-            for word, score in zip(words, scores):
-                f.write(f'\t{word:10}:{score:6f}\n')
+            c_v = CoherenceModel(topics=words,
+                                 texts=[[str(token) for token in text] for text in texts],
+                                 topn=10,
+                                 dictionary=dictionary,
+                                 coherence='c_v').get_coherence()
 
-    logging.info('Initialize and fit Top2Vec model')
-    top2vec_d2v = Top2VecW(documents=list(map(str, preprocessed_texts)),
-                           embedding_model='doc2vec',
-                           workers=10)
-    topics = top2vec_d2v.get_topics(num_topics=10)
-    topics, t_copy, t_copy_1 = tee(topics, 3)
-
-    ids = list(map(lambda x: x[0], topics))
-    words = list(map(lambda x: x[1][0], t_copy))
-    scores = list(map(lambda x: x[1][1], t_copy_1))
-    # coherence_model = CoherenceModel(topics=words,
-    #                                  corpus=doc2bow_corpus,
-    #                                  texts=preprocessed_texts,
-    #                                  dictionary=dictionary)
-    # logging.info(f'Top2Vec coherence score:{coherence_model.get_coherence()}')
-    logging.info(f'Saving Top2Vec top 10 topics')
-    with open('./top2vec-topics', 'w') as f:
-        for topic_num, (words, scores) in zip(ids, zip(words, scores)):
-            f.write(f'Topic {topic_num}:\n')
-            for word, score in zip(words, scores):
-                f.write(f'\t{word:10}:{score:6f}\n')
-
-    logging.info('Exiting…')
+            
+            with open(join(dataset_name,
+                           f'{model_name}_{preproc_name}_topics'), 'w') as f:
+                for topic in words:
+                    f.write(" ".join(topic[:10]) + "\n")
+                f.write(f"C_v = {c_v}\n")
+            
+            del model
