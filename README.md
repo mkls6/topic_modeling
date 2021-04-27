@@ -1,4 +1,4 @@
-# Coursework
+# Topic modeling
 This repo contains all the source code of my
 coursework done in the third year at Perm State
 University
@@ -16,5 +16,5 @@ University
 ```
 
 ## Environment
-All dependencies are listed in `requirements.txt`.
-Python interpeter version is 3.9.
+All dependencies are listed in `environment.yml`.
+See the README.md in `./src`.
