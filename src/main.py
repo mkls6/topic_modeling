@@ -26,48 +26,50 @@ MODEL_CONFIGS = [
              'workers': 12,
              'num_topics': 10,
              'chunksize': 30,
-             'per_word_topics': True}),
+             'per_word_topics': True,
+             'random_state': 42}),
     ('top2vec_doc2vec', {'cls': Top2VecW,
                          'embedding_model': 'doc2vec',
                          'tokenizer': crutch_for_top2vec,
                          'workers': 12}),
     ('top2vec_universal_sentence_encoder', {'cls': Top2VecW,
-                                            'embedding_model': 'universal-sentence-encoder-multilingual',
+                                            # 'embedding_model': 'universal-sentence-encoder-multilingual',
                                             'tokenizer': crutch_for_top2vec,
-                                            'workers': 12})
-    # ('top2vec_sbert', {'cls': Top2VecW,
-    #                    'embedding_model': 'distiluse-base-multilingual-cased',
-    #                    'tokenizer': crutch_for_top2vec,
-    #                    'workers': 12})
+                                            'workers': 12,
+                                            'use_embedding_model_tokenizer': True}),
+    ('top2vec_sbert', {'cls': Top2VecW,
+                       'embedding_model': 'distiluse-base-multilingual-cased',
+                       'tokenizer': crutch_for_top2vec,
+                       'workers': 12})
 ]
 
 PREPROC_CONFIGS = [
-    # ('simple', {'tokenize_ents': True, 'workers': 12}),
-    ('ner', {'tokenize_ents': False, 'workers': 12})
+    ('none', None),
+    ('simple', {'tokenize_ents': True, 'workers': 12}),
+    ('ner', {'tokenize_ents': False, 'workers': 8})
 ]
 
 if __name__ == '__main__':
     random.seed(42)
-    
+
     parser = get_cli_parser()
     args = vars(parser.parse_args())
 
     dataset_name = basename(args['input_dir'])
     preloaded_path = join(args['input_dir'], dataset_name + '_preloaded')
     makedirs(dataset_name, exist_ok=True)
-    
+
     print(f"Using {dataset_name} as input document collection")
-    
+
     print(f"Loading texts")
     if exists(preloaded_path):
         print('Using preloaded text list')
         with open(preloaded_path, 'rb') as f:
             files = pickle.load(f)
-    else:   
+    else:
         # List to make processing faster
         with Pool(12) as p:
-           files = list(tqdm(p.imap(get_text, get_files(args['input_dir']))))
-        files = list(map(get_text, tqdm(get_files(args['input_dir']))))
+            files = list(tqdm(p.imap(get_text, get_files(join(args['input_dir'], args['subdir'])))))
         with open(preloaded_path, 'wb') as f:
             pickle.dump(files, f)
 
@@ -75,28 +77,34 @@ if __name__ == '__main__':
         r_text, n = re.subn(r'[0-9]+:[0-9]+', '', text)
         files[i] = r_text
 
-    for preproc_name, cfg in tqdm(PREPROC_CONFIGS):
-        tqdm.write(f'Running preprocessing with `{preproc_name}` config')
-        
-        texts_path = f'../{dataset_name}_preprocessed_{preproc_name}'
-        dict_path = f'../{dataset_name}_preprocessed_{preproc_name}_dict'
-        
-        if exists(texts_path) and \
-           exists(dict_path):
-           with open(texts_path, 'rb') as f:
-                texts = pickle.load(f)
-           dictionary = Dictionary.load(dict_path)
-                
+    for preproc_name, preproc_cfg in PREPROC_CONFIGS:
+        tqdm.write(f'Preprocessing with `{preproc_name}` config')
+
+        if preproc_cfg is not None:
+            texts_path = join(args['input_dir'], f'{dataset_name}_preprocessed_{preproc_name}')
+            dict_path = join(args['input_dir'], f'{dataset_name}_preprocessed_{preproc_name}_dict')
+
+            if exists(texts_path) and \
+                    exists(dict_path):
+                print('Using cached result')
+                with open(texts_path, 'rb') as f:
+                    texts = pickle.load(f)
+                dictionary = Dictionary.load(dict_path)
+
+            else:
+                print('Running preprocessing from scratch')
+                preproc = Preprocessor(language=LangEnum.RU, **preproc_cfg)
+                # texts, dictionary = preproc.preprocess_texts(map(get_text, files))
+                texts, dictionary = preproc.preprocess_texts(files)
+                texts = list(texts)
+
+                with open(texts_path, 'wb') as f:
+                    pickle.dump(texts, f)
+                with open(dict_path, 'wb') as f:
+                    dictionary.save(f)
         else:
-            preproc = Preprocessor(language=LangEnum.RU, **cfg)
-            # texts, dictionary = preproc.preprocess_texts(map(get_text, files))
-            texts, dictionary = preproc.preprocess_texts(files)
-            texts = list(texts)
-        
-            with open(f'../{dataset_name}_preprocessed_{preproc_name}', 'wb') as f:
-                pickle.dump(texts, f)
-            with open(f'../{dataset_name}_preprocessed_{preproc_name}_dict', 'wb') as f:
-                dictionary.save(f)
+            texts = files
+            dictionary = Dictionary(documents=[doc.split() for doc in texts])
 
         for model_name, cfg in MODEL_CONFIGS:
             gc.collect()
@@ -122,20 +130,22 @@ if __name__ == '__main__':
             ids = list(map(lambda x: x[0], topics))
             words = list(map(lambda x: x[1][0], t_copy))
             scores = list(map(lambda x: x[1][1], t_copy_1))
-            
-            # print(words)
 
-            c_v = CoherenceModel(topics=words,
-                                 texts=[[str(token) for token in text] for text in texts],
-                                 topn=10,
-                                 dictionary=dictionary,
-                                 coherence='c_v').get_coherence()
-
+            if preproc_cfg is not None:
+                c_v = CoherenceModel(topics=words,
+                                     texts=[[str(token) for token in text] for text in texts],
+                                     topn=10,
+                                     dictionary=dictionary,
+                                     coherence='c_v').get_coherence()
+            else:
+                c_v = None
             
+            cfg['cls'] = cls
+
             with open(join(dataset_name,
                            f'{model_name}_{preproc_name}_topics'), 'w') as f:
                 for topic in words:
                     f.write(" ".join(topic[:10]) + "\n")
                 f.write(f"C_v = {c_v}\n")
-            
+
             del model
