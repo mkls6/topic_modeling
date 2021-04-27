@@ -156,4 +156,5 @@ class Top2VecW(GenericModel):
             topic_words, word_scores, topic_nums = self.__model__.get_topics(
                 *args, **kwargs
             )
+            topic_words = [[str(t) for t in w.tolist()] for w in topic_words]
             return zip(topic_nums, zip(topic_words, word_scores))

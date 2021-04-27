@@ -15,6 +15,11 @@ def get_cli_parser():
         type=str
     )
     parser.add_argument(
+        '--subdir',
+        help='Subdir to choose from',
+        type=str
+    )
+    parser.add_argument(
         '-m', '--model',
         help='Path to pretrained topic model',
         type=str

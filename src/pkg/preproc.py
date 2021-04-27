@@ -83,7 +83,7 @@ class Preprocessor:
             if not self.tokenize_ents and len(doc.ents) > 0:
                 merged_tokens = ""
                 
-                for token in tokens:                
+                for token in tokens:
                     if token.ent_iob == 3: # Beggining of the entity
                         # token = "-".join(token.lemma_.lower().split('-'))
                         merged_tokens = token.lemma_.lower().strip() + "_"
