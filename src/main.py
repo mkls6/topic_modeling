@@ -16,11 +16,6 @@ from pkg import get_files, get_cli_parser, get_text
 from tqdm import tqdm
 from multiprocessing import Pool
 
-
-def crutch_for_top2vec(doc):
-    return doc.split()
-
-
 MODEL_CONFIGS = [
     ('lda', {'cls': LDA,
              'workers': 12,
@@ -33,13 +28,12 @@ MODEL_CONFIGS = [
                          'tokenizer': crutch_for_top2vec,
                          'workers': 12}),
     ('top2vec_universal_sentence_encoder', {'cls': Top2VecW,
-                                            # 'embedding_model': 'universal-sentence-encoder-multilingual',
-                                            'tokenizer': crutch_for_top2vec,
-                                            'workers': 12,
-                                            'use_embedding_model_tokenizer': True}),
+                                            'embedding_model': 'universal-sentence-encoder-multilingual',
+                                            'tokenizer': lambda doc: doc.split(),  # do not preprocess again
+                                            'workers': 12}),
     ('top2vec_sbert', {'cls': Top2VecW,
                        'embedding_model': 'distiluse-base-multilingual-cased',
-                       'tokenizer': crutch_for_top2vec,
+                       'tokenizer': lambda doc: doc.split(),
                        'workers': 12})
 ]
 
@@ -139,7 +133,7 @@ if __name__ == '__main__':
                                      coherence='c_v').get_coherence()
             else:
                 c_v = None
-            
+
             cfg['cls'] = cls
 
             with open(join(dataset_name,
